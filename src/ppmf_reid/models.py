@@ -15,7 +15,7 @@ def match_summary(df):
     s['n_match'] = len(df)
     for col in race_eth_cols:
         if col in df.columns:
-            s[col] = np.mean(df[col])
+            s[col] = np.sum(df.pweight * df[col]) / df.pweight.sum()
 
     return s
 
