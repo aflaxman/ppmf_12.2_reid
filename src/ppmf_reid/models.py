@@ -42,3 +42,43 @@ def link_records(df_sim_commercial, df_ppmf):
 
     return df_linked
 
+def load_and_link(state, state_fips, county_fips):
+    import ppmf_reid.data
+
+    df_synth = ppmf_reid.data.read_synth_data(state, county_fips)
+    df_sim_commercial = ppmf_reid.data.simulate_commercial_data(df_synth)
+    df_test = ppmf_reid.data.generate_test_data(df_synth, df_sim_commercial)
+    assert np.all(df_sim_commercial.index == df_test.index)
+
+    df_ppmf_12 = ppmf_reid.data.read_ppmf_data(state_fips, county_fips)
+    df_ppmf_inf = ppmf_reid.data.simulate_ppmf_epsilon_infinity(df_synth)
+    df_sim_ppmf = {}
+    for eps in [.05, .1, .2]:
+        df_sim_ppmf[f'sim_{eps:.02f}'] = ppmf_reid.data.simulate_ppmf_epsilon(df_synth, eps)
+
+    df_ppmf = df_sim_ppmf.copy()
+    df_ppmf.update({'12.2':df_ppmf_12,
+                    'inf':df_ppmf_inf})
+
+    df_linked = {}
+    for key in df_ppmf.keys():
+        df_linked[key] = link_records(df_sim_commercial, df_ppmf[key])
+
+    return locals()
+
+def summarize_results(results):
+    summary = pd.Series(dtype='object')
+    summary['state'] = results['state']
+    summary['state_fips'] = results['state_fips']
+    summary['county_fips'] = results['county_fips']
+    
+    df_test = results['df_test']
+
+    for eps, df_linked in results['df_linked'].items():
+        summary[f'n_unique_{eps}'] = (df_linked.n_match == 1).sum()
+        for col in ['hispanic', 'racwht', 'racblk', 'racaian', 'racasn', 'racnhpi', 'racsor', 'racmulti']:
+            summary[f'n_unique_{col}_{eps}'] = (df_linked[col] == 1).sum()
+            df_unique = df_linked[(df_linked[col] == 1)]
+            s_correct_match = (df_unique[col] == df_test.loc[df_unique.index, col])
+            summary[f'n_matched_{col}_{eps}'] = s_correct_match.sum()
+    return summary

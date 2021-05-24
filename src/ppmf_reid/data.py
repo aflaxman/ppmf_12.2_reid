@@ -81,11 +81,11 @@ def simulate_ppmf_epsilon(df_synth, epsilon):
     s_hist = pd.Series(s_hist, index=pd.MultiIndex.from_product((t.state.unique(), t.county.unique(), t.tract.unique(), t.block.unique(),
                                                                  [0,1], [0,1], [0,1], [0,1], [0,1], [0,1], [0,1], [0,1])))
     s_hist = s_hist.fillna(0)
-    s_hist.index.names = index_names
+    s_hist.index.names = index_names  # FIXME: there must be a cooler way to fill in the missing rows in the multi-index and keep the names
 
     dp_noise = np.random.laplace(scale=1/(2*epsilon), size=len(s_hist))
     noisy_hist = np.clip(s_hist+dp_noise, 0, np.inf)
-    #noisy_hist *= len(df_synth)/noisy_hist.sum()  # rescale to keep total population invariant
+    #noisy_hist *= len(df_synth)/noisy_hist.sum()  # rescale to keep total population invariant  (TODO: rescale all counties simulataneously to match state count)
     #noisy_hist = np.round(noisy_hist) # round to have integral number of people (TODO: ensure the total count is still invariant)
     
 
