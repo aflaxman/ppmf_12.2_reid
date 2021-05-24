@@ -4,6 +4,7 @@ import ppmf_reid.data, ppmf_reid.models
 
 assert len(sys.argv) == 4, 'usage: run_on_cluster.sh 1_run_county.py [state] [state_fips] [county_fips]'
 _, state, state_fips, county_fips = sys.argv
+state = state.lower()
 state_fips, county_fips = int(state_fips), int(county_fips)
 
 results = ppmf_reid.models.load_and_link(state, state_fips, county_fips)

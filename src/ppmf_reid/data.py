@@ -86,7 +86,7 @@ def simulate_ppmf_epsilon(df_synth, epsilon):
     dp_noise = np.random.laplace(scale=1/(2*epsilon), size=len(s_hist))
     noisy_hist = np.clip(s_hist+dp_noise, 0, np.inf)
     #noisy_hist *= len(df_synth)/noisy_hist.sum()  # rescale to keep total population invariant  (TODO: rescale all counties simulataneously to match state count)
-    #noisy_hist = np.round(noisy_hist) # round to have integral number of people (TODO: ensure the total count is still invariant)
+    noisy_hist = np.round(noisy_hist) # round to have integral number of people (TODO: ensure the total count is still invariant)
     
 
     df_ppmf = noisy_hist.reset_index()

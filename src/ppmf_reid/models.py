@@ -12,7 +12,7 @@ def match_summary(df):
     """
 
     s = pd.Series(dtype=float)
-    s['n_match'] = len(df)
+    s['n_match'] = df.pweight.sum()
     for col in race_eth_cols:
         if col in df.columns:
             s[col] = np.sum(df.pweight * df[col]) / df.pweight.sum()
@@ -53,7 +53,7 @@ def load_and_link(state, state_fips, county_fips):
     df_ppmf_12 = ppmf_reid.data.read_ppmf_data(state_fips, county_fips)
     df_ppmf_inf = ppmf_reid.data.simulate_ppmf_epsilon_infinity(df_synth)
     df_sim_ppmf = {}
-    for eps in [.05, .1, .2]:
+    for eps in [.01, .1, 1., 10.0]:
         df_sim_ppmf[f'sim_{eps:.02f}'] = ppmf_reid.data.simulate_ppmf_epsilon(df_synth, eps)
 
     df_ppmf = df_sim_ppmf.copy()
