@@ -42,18 +42,53 @@ def link_records(df_sim_commercial, df_ppmf):
 
     return df_linked
 
-def load_and_link(state, state_fips, county_fips):
+def simple_impute_records(df_sim_commercial):
+    """merge non-hispanic, white, of voting-age into simulated
+    commercial data
+
+    Parameters
+    ----------
+    df_sim_commercial : pd.DataFrame, including geographic columns, and voting_age column
+    """
+    df_linked = df_sim_commercial.copy()
+
+    for col in race_eth_cols:
+        df_linked[col] = 0
+    df_linked['racwht'] = 1
+
+
+    # fill in the blanks with n_match value 0
+    df_linked['n_match'] = 0
+
+    return df_linked
+
+def load_and_link(state, state_fips, county_fips, n_chunks=1, chunk_i=0):
+    """ load and simulate data and link it
+
+    Parameters
+    ----------
+    state : str, e.g. 'WA'
+    state_fips : int, e.g. 53 (note: redundant, but convenient)
+    county_fips : int, e.g. 53
+    n_chunks : int, to break up large counties
+    chunk_i : int, < n_chunks
+    """
+
     import ppmf_reid.data
 
     df_synth = ppmf_reid.data.read_synth_data(state, county_fips)
+    df_synth = df_synth[df_synth.tract % n_chunks == chunk_i]
     df_sim_commercial = ppmf_reid.data.simulate_commercial_data(df_synth)
     df_test = ppmf_reid.data.generate_test_data(df_synth, df_sim_commercial)
     assert np.all(df_sim_commercial.index == df_test.index)
 
     df_ppmf_12 = ppmf_reid.data.read_ppmf_data(state_fips, county_fips)
+    df_ppmf_12 = df_ppmf_12[df_ppmf_12.tract % n_chunks == chunk_i]
+
+    #df_ppmf_4 = ppmf_reid.data.read_ppmf_data_4(state_fips, county_fips)
     df_ppmf_inf = ppmf_reid.data.simulate_ppmf_epsilon_infinity(df_synth)
     df_sim_ppmf = {}
-    for eps in [.01, .1, 1., 10.0]:
+    for eps in [.01, .1, 1, 1.2, 1.25, 1.3, 1.35, 1.4, 1.6, 1.8] + list(range(2,9,2)):
         df_sim_ppmf[f'sim_{eps:.02f}'] = ppmf_reid.data.simulate_ppmf_epsilon(df_synth, eps)
 
     df_ppmf = df_sim_ppmf.copy()
@@ -61,8 +96,11 @@ def load_and_link(state, state_fips, county_fips):
                     'inf':df_ppmf_inf})
 
     df_linked = {}
-    for key in df_ppmf.keys():
-        df_linked[key] = link_records(df_sim_commercial, df_ppmf[key])
+    if len(df_sim_commercial) > 0:
+        df_linked['baseline'] = simple_impute_records(df_sim_commercial)
+        for key in df_ppmf.keys():
+            df_linked[key] = link_records(df_sim_commercial, df_ppmf[key])
+
 
     return locals()
 
@@ -75,10 +113,14 @@ def summarize_results(results):
     df_test = results['df_test']
 
     for eps, df_linked in results['df_linked'].items():
-        summary[f'n_unique_{eps}'] = (df_linked.n_match == 1).sum()
+        summary[f'n_unique_match_{eps}'] = (df_linked.n_match == 1).sum()
         for col in ['hispanic', 'racwht', 'racblk', 'racaian', 'racasn', 'racnhpi', 'racsor', 'racmulti']:
-            summary[f'n_unique_{col}_{eps}'] = (df_linked[col] == 1).sum()
-            df_unique = df_linked[(df_linked[col] == 1)]
-            s_correct_match = (df_unique[col] == df_test.loc[df_unique.index, col])
-            summary[f'n_matched_{col}_{eps}'] = s_correct_match.sum()
+            summary[f'n_unique_impute_{col}_{eps}'] = (df_linked[col] == 1).sum()
+            df_unique_impute = df_linked[(df_linked[col] == 1)]
+            s_correct_impute = (df_unique_impute[col] == df_test.loc[df_unique_impute.index, col])
+            summary[f'n_correct_impute_{col}_{eps}'] = s_correct_impute.sum()
+
+            df_unique_match = df_linked[(df_linked[col] == 1)]
+            s_correct_match = (df_unique_match[col] == df_test.loc[df_unique_match.index, col])
+            summary[f'n_unique_match_correct_{col}_{eps}'] = s_correct_match.sum()
     return summary
