@@ -113,14 +113,20 @@ def summarize_results(results):
     df_test = results['df_test']
 
     for eps, df_linked in results['df_linked'].items():
-        summary[f'n_unique_match_{eps}'] = (df_linked.n_match == 1).sum()
+        summary[f'n_unique_match_eps_{eps}'] = (df_linked.n_match == 1).sum()
+
+        df_unique_impute = df_linked[np.all(df_linked[race_eth_cols]%1 == 0, axis=1)]
+        summary[f'n_unique_impute_all_eps_{eps}'] = len(df_unique_impute)
+
+        summary[f'n_correct_impute_all_eps_{eps}'] = np.all(df_unique_impute[race_eth_cols] == df_test.loc[df_unique_impute.index, race_eth_cols], axis=1).sum()
+
         for col in ['hispanic', 'racwht', 'racblk', 'racaian', 'racasn', 'racnhpi', 'racsor', 'racmulti']:
-            summary[f'n_unique_impute_{col}_{eps}'] = (df_linked[col] == 1).sum()
+            summary[f'n_unique_impute_attribute_{col}_eps_{eps}'] = (df_linked[col] == 1).sum()
             df_unique_impute = df_linked[(df_linked[col] == 1)]
             s_correct_impute = (df_unique_impute[col] == df_test.loc[df_unique_impute.index, col])
-            summary[f'n_correct_impute_{col}_{eps}'] = s_correct_impute.sum()
+            summary[f'n_correct_impute_attribute_{col}_eps_{eps}'] = s_correct_impute.sum()
 
-            df_unique_match = df_linked[(df_linked[col] == 1)]
+            df_unique_match = df_linked[(df_linked.n_match == 1)]
             s_correct_match = (df_unique_match[col] == df_test.loc[df_unique_match.index, col])
-            summary[f'n_unique_match_correct_{col}_{eps}'] = s_correct_match.sum()
+            summary[f'n_unique_match_correct_impute_attribute_{col}_eps_{eps}'] = s_correct_match.sum()
     return summary
