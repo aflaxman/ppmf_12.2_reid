@@ -129,4 +129,24 @@ def summarize_results(results):
             df_unique_match = df_linked[(df_linked.n_match == 1)]
             s_correct_match = (df_unique_match[col] == df_test.loc[df_unique_match.index, col])
             summary[f'n_unique_match_correct_impute_attribute_{col}_eps_{eps}'] = s_correct_match.sum()
+
+        # tally counts for non-majority re-id
+        summary[f'n_unique_impute_nonmajority_{eps}'] = 0
+        summary[f'n_correct_impute_nonmajority_eps_{eps}'] = 0
+        for i, df_sim_commercial_i in results['df_sim_commercial'].groupby(['state', 'county', 'tract']):
+            df_test_i = df_test.loc[df_sim_commercial_i.index]
+            s_rac_eth_cnts = df_test_i.sum()
+            majority_race_eth = s_rac_eth_cnts.sort_values(ascending=False).index[0]
+            non_majority_rows = df_test_i[majority_race_eth] == 0
+            df_unique_impute = df_linked[np.all(df_linked[race_eth_cols]%1 == 0, axis=1)&non_majority_rows]
+            summary[f'n_unique_impute_nonmajority_{eps}'] += len(df_unique_impute)
+            summary[f'n_correct_impute_nonmajority_eps_{eps}'
+                   ] += np.all(df_unique_impute[race_eth_cols] == df_test_i.loc[df_unique_impute.index, race_eth_cols], axis=1).sum()
+
+        # add total and race/eth alone or in combination counts for convenience
+        for col in ['hispanic', 'racwht', 'racblk', 'racaian', 'racasn', 'racnhpi', 'racsor', 'racmulti']:
+            summary[f'n_{col}'] = df_test[col].sum()
+        summary['n_total'] = len(df_test)
+
+
     return summary
