@@ -76,24 +76,29 @@
 % \printAffiliationsAndNotice{\icmlEqualContribution} % otherwise use the standard text.
 
 \begin{abstract}
-As part of the 2020 decennial census, the US Census Bureau has developed a new approach to disclosure avoidance based on differential privacy, the TopDown Algorithm (TDA).  The first output to which it will be applied is the Public Law 74 (PL-74) redistricting file, and the most recent demonstration of TDA to produce a PL-74 file from 2010 census data used a privacy loss budget of $\epsilon=12.2$.
+As part of the 2020 decennial census, the US Census Bureau has developed a new approach to disclosure avoidance, based on differential privacy, called the TopDown Algorithm.  The first results to use this new approach will be the Public Law 74 redistricting file, and the Census Bureau recently released a demonstration of their algorithm on data from the 2010 census using a privacy loss budget of $\epsilon=12.2$.
 
-We used record linkage to investigate how much protection large values of $\epsilon$ might provide.
+We conducted a simulation study to investigate the risk of re-identification in data like this.  We reconstructed a microdata file based on the 2010 decennial census and used this to simulate a commercial database and a test database.  We used exact record linkage between the simulated commercial database and the demonstration data (as well as simulated demonstrate data with larger and smaller privacy loss budgets) and measured the putative and confirmed re-identifications to investigate how much protection a range of values of $\epsilon$ might provide.
+
+In our simulation, we found 40.5 million putative re-identifications among the total US population, of which 38.6 million were confirmed.  Among individuals who are not of the majority race/ethnicity of their census tract, we found 2.5 million putative re-identifications, of which 0.9 million were confirmed.
+
+Balancing the trade-off between privacy and accuracy is a policy decision, and we hope that this analysis can provide some additional evidence to inform stakeholders.
+
 \end{abstract}
 
 \section{Introduction}
 \label{introduction}
-As part of the 2020 decennial census, the US Census Bureau has developed a new approach to disclosure avoidance, based on differential privacy, called the TopDown Algorithm (TDA) \cite{abowd2019census}.  The details of their approach have been refined iteratively since they first debuted as part of the 2018 end-to-end  \cite{garfinkel2019end}.  As we approach the first application of TDA for a data product from the 2020 census, the P.L. 94-171 redistricting (PL-74) data, we now know more about the planned choices for TDA options enumerated in \cite{petti2019differential}, such as at what level the overall privacy budget might be set.
+As part of the 2020 decennial census, the US Census Bureau has developed a new approach to disclosure avoidance, based on differential privacy, called the TopDown Algorithm (TDA) \cite{abowd2019census}.  The details of their approach have been refined iteratively since they first debuted as part of the 2018 end-to-end test \cite{garfinkel2019end}.  The release of the P.L. 94-171 redistricting (PL-74) data in August, 2021 will be the first application of TDA for a data product from the 2020 decennial census, and we now know more about the plans for some of the TDA options previously enumerated  \cite{petti2019differential}, such as at what level the overall privacy budget might be set.
 
-In support of their work to develop and validate TDA,  the Census Bureau has released a series of Privacy-Protected Microdata Files (PPMFs), based on applying iterations of TDA to the 2010 census edited file.  The most recent release of PPMF data included versions with $\epsilon=4$ and $\epsilon=12.2$ \cite{census2021developing}, because
+In support of their work to develop and validate TDA,  the Census Bureau has released a series of Privacy-Protected Microdata Files (PPMFs) by applying iterations of TDA to the 2010 Census Edited File.  The most recent release of PPMF data included versions with $\epsilon=4$ and $\epsilon=12.2$ \cite{census2021developing}, because
 Census Bureau researchers found that an $\epsilon$ of 12.2 was sufficient to achieve their accuracy target that the largest racial or ethnic group in any geography entity with a total population of at least 500 people is accurate to within 5 percentage points of their enumerated value at least 95\% of the time.
 
-In the ontological culture of theoretical computer science, the greek symbol $\epsilon$ typically denotes a small positive number (for example, this is a math joke: ``Let $\epsilon$ be negative'').  While there is no rigid guidance as to what magnitude of $\epsilon$ is appropriate in applications of $\epsilon$-differentially private (DP) algorithms, we thought that an $\epsilon$ of 12.2 sounded high. In this note, we investigate empirically how $\epsilon$-DP algorithms might protect against disclosure of individual race and ethnicity attributes in PL-74 data when $\epsilon$ is large.
+In math and computer science, the greek symbol $\epsilon$ typically denotes a small positive number (for example, this is a math joke: ``Let $\epsilon$ be negative!'').  While there is no rigid guidance as to what magnitude of $\epsilon$ is appropriate in applications of $\epsilon$-differentially private (DP) algorithms, we thought that an $\epsilon$ of 12.2 sounded high. In this work, we investigated empirically how well TDA protects against disclosure of individual race and ethnicity attributes in PL-74 data when $\epsilon$ is as large as 12.2.
 
 \section{Methods}
-A PPMF for the PL-74 data product contains many rows and only a few columns: over 300 million rows, one for each individual enumerated, but essentially only four columns, capturing (1) the individual's precise geographic location (census block), (2) whether the individual is aged 18 and over or not (voting age), (3) race and ethnicity which can be encoded as one of 126 values, and (4) whether the individual resides in a house or some sort of ``group quarters''.  We consider the race and ethnicity information the most sensitive and least commercially available of these columns, and therefore focused our investigation on the extent to which one might be able to re-identify the race and ethnicity of individuals from a PPMF such as we show in Figure~\ref{db}a.
+A PPMF for the PL-74 data product contains many rows and only a few columns (Figure~\ref{db}a): over 300 million rows, one for each individual enumerated, but essentially only four columns, capturing (1) the individual's precise geographic location (census block), (2) whether the individual is aged 18 and over or not (voting age), (3) race and ethnicity which can be encoded as one of 126 mutually exclusive values, and (4) whether the individual resides in a house or in group quarters (such as a prison or a skilled nursing facility).  We considered the race and ethnicity information the most sensitive and least commercially available of these columns, and therefore focused our investigation on the extent to which one might be able to re-identify the race and ethnicity of individuals from a PPMF such as we show in Figure~\ref{db}a.
 
-We simulated a re-identification attack, using record linkage between a PPMF and a reconstructed microdata file (ReMF) based on the 2010 decennial census as ground truth (as shown in Figure~ref{db}b). To obtain our ReMF, we followed an approach similar to that described by Census Bureau researchers in \cite{garfinkel2019understanding}, where we synthesized a population of over 300 million individuals, using integer programming so that the age group, sex, race (when alone), ethnicity, and group quarters status matched tables P12A, P12B, P12C, P12D, P12E, P12F, P12G, P5, P12H, P21A, P29B, P29C, P29D, P29E, P29F, and P29G of the 2010 decennial census at the block level, and table PCT21 of the 2010 decennial census at the tract level.
+We simulated a re-identification attack, using exact record linkage between the PPMF and a reconstructed microdata file (ReMF, Figure~\ref{db}b) which we constructed based on the 2010 decennial census. To obtain our ReMF, we followed an approach similar to that described by Census Bureau researchers in \cite{garfinkel2019understanding}, where we used integer programming to synthesize a population of 312,471,327 individuals to match multiple tables published by the Census Bureau. To be more precise, we ensured that the joint age, sex, and race distribution matched Summary File 1 tables P12A, P12B, P12C, P12D, P12E, P12F, and P12G from the  at the block level; the joint race-ethnicity distribution matched table P5 at the block level; the joint age-sex-ethnicity distribution matches table P12H at the block level, the joint race-group quarters status distribution matches tables P21A, P29B, P29C, P29D, P29E, P29F, and P29G at the block level; and the joint age-sex-group quarters status distribution matches table PCT21 at the tract level. To disaggregate the multiracial race category into specific races, we use age, sex, and ethnicity from the 2012-2017 1-year ACS PUMs datasets as priors, and sampled from the state-level distribution of multiracial individuals. We use this same method to assign relationships to heads of households.
 
 \begin{figure}[ht]
 \vskip 0.2in
@@ -105,126 +110,44 @@ We simulated a re-identification attack, using record linkage between a PPMF and
 \vskip -0.2in
 \end{figure}
 
-We then split our ReMF into a simulated commercial (sim-com) database and a test database (Figure~\ref{db}c and d), where the sim-com data contained the age, sex, and geographic detail (census block) for each individual in the ReMF who was not residing in group quarters, and the test data contained the race and ethnicity of each individual.
+We then split our ReMF into a simulated commercial (sim-com) database and a test database (Figure~\ref{db}c and~\ref{db}d), where the sim-com data contained the age, and geographic detail (census block) for each individual in the ReMF who was not residing in group quarters, and the test data contained the race and ethnicity of each individual.
 
-We merged records from the sim-com database to records from the PPMF, by exact linkage on census block and voting-age status (i.e. $\mathbf{1}_{\text{age} \geq 18}$) for individuals in the PPMF residing in households, and counted the number of individuals in the sim-com database who were linked to one or more individuals with a unique race/ethnicity value.  We also calculated the number and fraction of individuals for whom the unique linked race/ethnicity value matched the value in the test database (confirmed links).
+We merged records from the sim-com database to records from the PPMF, using exact record linkage on census block and voting-age status (i.e. $\mathbf{1}_{\mathrm{age} \geq 18}$) for individuals in the PPMF residing in households, and counted the number of individuals in the sim-com database who were linked to one or more individuals with a unique race/ethnicity value (putative re-identifications).  We also calculated the number and fraction of individuals for whom the unique linked race/ethnicity value matched the value in the test database (confirmed re-identifications).
 
-For example, census block 2012 in census tract 71503 of King County, Washington contained 4 individuals in our sim-com data, only one of whom was not of voting age (a three-year-old female, first row of shown data in Figure~\ref{db}c).  A PPMF created with a large-enough value of $\epsilon$ would be highly likely to also contain a single non-voting-age individual in this block, and linking these records would risk disclosing the race and ethnicity reported by for this individual. A PPMF created with a sufficiently small value of $\epsilon$, on the other hand, would be likely to contain multiple people of non-voting age, with multiple race/ethnicity values, and therefore preclude re-identification of this child's race and ethnicity. In the $\epsilon=12.2$ PPMF, this block contained six individuals (Figure~\ref{db}a), only one of whom was of non-voting age, meaning it is possible to make a unique match in this record linkage experiment.  However, the race/ethnicity data in the PPMF does not match that in the test data, so this putative match fails its confirmation test, and the PPMF succeeds in protecting the child's race and ethnicity attributes.
+For example, census block 2012 in census tract 71503 of King County, Washington contained 4 individuals in our sim-com data, only one of whom was not of voting age (a three-year-old female, first row of shown data in Figure~\ref{db}c).  A PPMF created with a large-enough value of $\epsilon$ would be highly likely to also contain a single non-voting-age individual in this block, and linking these records would risk disclosing the race and ethnicity reported for this individual. A PPMF created with a sufficiently small value of $\epsilon$, on the other hand, would be likely to contain multiple people of non-voting age, with multiple race/ethnicity values, and therefore preclude re-identification of this child's race and ethnicity. In the $\epsilon=12.2$ PPMF, this block contained six individuals (Figure~\ref{db}a), only one of whom was of non-voting age, meaning re-identification yields a putative link for this child. However, the race/ethnicity data in the PPMF does not match that in the test data, so this link is \emph{not} a confirmed re-identification, and the PPMF has succeeded in protecting the child's race and ethnicity attributes.
 
-A limitation of our approach here is that while the PPMF was constructed from the census edited file, we have obtained ReMF based on tables that were privacy protected by the swapping algorithm that Census Bureau used for disclosure avoidance in the 2010 census, the details of which are secret \cite{mckenna2018disclosure}.   This means that a non-link or a non-confirmation of a link could be due to swapping, and could lead to an underestimation of the disclosure risk of the PPMF with $\epsilon=12.2$.  To further explore how differential privacy might protect PL-74 data, we also developed a simplistic proxy for PPMF data using a tunable $\epsilon$ and our ReMF data.  For each census block, we added laplace noise with parameter $\frac{1}{2\epsilon}$ to the histogram counts for strata of voting age times the 126 race/ethnicity combinations in census data, and then rounded the sums to the nearest non-negative integers.  We repeated our record linkage experiment with simulated PPMF data for a range of $\epsilon$ values ($\epsilon$-sim-PPMF)$.
+A limitation of our approach is that while the PPMF was constructed from the Census Edited File, we have derived our ReMF from published tables that were perturbed by the swapping algorithm that Census Bureau used for disclosure avoidance in the 2010 census, the details of which are secret \cite{mckenna2018disclosure}.   This means that a non-link or a non-confirmation of a link could be due to swapping, and could lead to an under- or over-estimation of the disclosure risk of the PPMF with $\epsilon=12.2$.  To further explore how differential privacy might protect PL-74 data, we also developed a simplistic proxy for PPMF data using a tunable $\epsilon$ and our ReMF data.  For each census block, we added laplace noise with parameter $\frac{1}{2\epsilon}$ to the histogram counts for strata of voting age times the 126 race/ethnicity combinations in census data, and then rounded the sums to the nearest non-negative integers.  We repeated our record linkage experiment with simulated PPMF data for a range of $\epsilon$ values ($\epsilon$-sim-PPMF).
 
-To verify that our simulation was working as expected, we considered an $\epsilon=\infty$ sim-PPMF, for which we expected that all uniquely imputed race and ethnicity attributes should match the test data exactly, and we also considered an $\epsilon=0.01$ sim-PPMF, where we expected to find very few individuals with a uniquely imputed race or ethnicity, and even fewer where the imputed attribute would match the test data, i.e. at most a few correct matches, just by chance.
+To verify that our simulation was working as expected, we considered an $\epsilon=\infty$ sim-PPMF. For this, we expected that all putative re-identifications of race and ethnicity attributes would be confirmed to be correct re-identifications by our test database. We also considered an $\epsilon=0.01$ sim-PPMF, where we expected to find very few individuals with a uniquely imputed race or ethnicity, and even fewer where the imputed attribute would match the test data, i.e. at most a few correct matches, just by chance.
 
-We also compared the correct imputation rates by race and ethnicity [[as well as by county size, if time permits]].
+In addition to counting the total number of putative and confirmed re-identifications in our simulations, we also counted the putative and confirmed re-identifications among individuals of the non-majority race/ethnicity for their census tract.
 
+We have put a replication archive of the code used for this analysis online at \url{https://github.com/aflaxman/ppmf_12.2_reid}.
 
 \section{Results}
 
-The final versions of papers accepted for publication should follow the
-same format and naming convention as initial submissions, except that
-author information (names and affiliations) should be given. See
-Section~\ref{final author} for formatting instructions.
+Our re-identification experiment produced the results we expected with the $\epsilon$-sim-PPMFs of very large and small $\epsilon$.  For $\epsilon=0.01$, we found zero putative re-identifications and therefore zero confirmed re-identifications from the sim-com data.  For $\epsilon=\infty$, we found 44.6 million putative re-identifications, of which all 44.6 million were confirmed (precision of 100\%).  This is re-identification of 14.3\% of the US population.
+
+For the $\epsilon=12.2$ PPMF produced by TDA, we found 40.5 million putative re-identifications, of which 38.6 million were confirmed (precision of 95.3\%). This is putative re-identification of 13.0\% of the US population, and confirmed re-identification of 12.4\%.
+
+When we restricted our analysis to re-identification among people who were not of the majority race/ethnicity of their census tract, we found a substantial reduction in the re-identification.  For the $\epsilon$-sim-PPMF with $\epsilon=\infty$, we found 1.6 million putative re-identifications, and, as in the total population, since $\epsilon=\infty$ affords no privacy protection, all 1.6 million were confirmed for a precision of 100\%.  This is re-identification of 2.8\% of the individuals who are not in the majority race/ethnicity group of their census tract, which constitutes 0.5\% of the total US population.  Without privacy protection, non-majority re-identifications constitute 3.6\% of all confirmed re-identifications.
+
+For the $\epsilon=12.2$ PPMF produced by TDA, among people who were not of the majority race/ethnicity of their census tract, we found 2.5 million putative re-identifications (which we note is substantially \emph{more} than we found with the $\epsilon=\inf$ sim-PPMF).  However, we found only 0.9 million confirmed re-identifications, for a precision of 35.8\%, substantially lower than the re-identification precision we found for the $\epsilon=12.2$ PPMF among the total population.  This is confirmed re-identification of 1.5\% of the individuals who are not in the majority race/ethnicity group of their census tract, constituting 0.3\% of the total US population.  For the $\epsilon=12.2$ PPMF, we found that non-majority re-identifications constitute 2.3\% of all confirmed re-identifications.
+
+
 
 \section{Discussion}
 
-All submissions must follow the specified format.
+Our results from the $\epsilon$-sim-PPMF with $\epsilon=\infty$ demonstrate what is at stake when it comes to disclosure avoidance in the PL-74 file.  This database contains a limited number of attributes on each individual, but one of the attributes represents a precise geography, census block.  Because of this, without some sort of disclosure avoidance system in place, the 2010 PL-74 file could have disclosed race and ethnicity data on over 40 million people.  While the vast majority of those individuals were of the majority race and ethnicity of their census block, over one million of them were not.
 
-\begin{figure}[ht]
-\vskip 0.2in
-\begin{center}
-\centerline{\includegraphics[width=\columnwidth]{icml_numpapers}}
-\caption{Historical locations and number of accepted papers for International
-Machine Learning Conferences (ICML 1993 -- ICML 2008) and International
-Workshops on Machine Learning (ML 1988 -- ML 1992). At the time this figure was
-produced, the number of accepted papers for ICML 2008 was unknown and instead
-estimated.}
-\label{icml-historical}
-\end{center}
-\vskip -0.2in
-\end{figure}
+On the other extreme, our results from the $\epsilon$-sim-PPMF with $\epsilon=0.01$ results show that DP is quite capable of foiling this re-identification attack, and it turns out the even $\epsilon$ substantially larger than 0.01 precludes re-identification (data not shown).
 
+Our results for the $\epsilon=12.2$ PPMF produced by TDA fall in the middle of these extremes.  Although our simulation found 38.6 million confirmed re-identifications, this must be interpreted with caution because of the unknown impact of swapping on the SF1 tables that we used to construct our ReMF.  Our simulation confirmed re-identification among 0.9 million people who were not of the majority race/ethnicity of their census tract, which was 35.8\% of the putative re-identifications among this subgroup.
+%Recall that the $\epsilon$ value of 12.2 was selected so that the largest racial or ethnic group in any sufficiently large geography was accurate; this requirement for high accuracy appears to be balanced against a lower level of privacy.
 
-Number figures sequentially, placing the figure number and caption
-\emph{after} the graphics, with at least 0.1~inches of space before
-the caption and 0.1~inches after it, as in
-Figure~\ref{icml-historical}. The figure caption should be set in
-9~point type and centered unless it runs two or more lines, in which
-case it should be flush left. You may float figures to the top or
-bottom of a column, and you may set wide figures across both columns
-(use the environment \texttt{figure*} in \LaTeX). Always place
-two-column figures at the top or bottom of the page.
+Balancing the trade-off between privacy and accuracy will always a policy decision, and in this case, it 
+is a policy decision on a strict timeline.  We hope that the framework and results of our simulation study can be helpful to inform this debate and decision.
 
-\subsection{Algorithms}
-
-If you are using \LaTeX, please use the ``algorithm'' and ``algorithmic''
-environments to format pseudocode. These require
-the corresponding stylefiles, algorithm.sty and
-algorithmic.sty, which are supplied with this package.
-Algorithm~\ref{alg:example} shows an example.
-
-\begin{algorithm}[tb]
-   \caption{Bubble Sort}
-   \label{alg:example}
-\begin{algorithmic}
-   \STATE {\bfseries Input:} data $x_i$, size $m$
-   \REPEAT
-   \STATE Initialize $noChange = true$.
-   \FOR{$i=1$ {\bfseries to} $m-1$}
-   \IF{$x_i > x_{i+1}$}
-   \STATE Swap $x_i$ and $x_{i+1}$
-   \STATE $noChange = false$
-   \ENDIF
-   \ENDFOR
-   \UNTIL{$noChange$ is $true$}
-\end{algorithmic}
-\end{algorithm}
-
-\subsection{Tables}
-
-You may also want to include tables that summarize material. Like
-figures, these should be centered, legible, and numbered consecutively.
-However, place the title \emph{above} the table with at least
-0.1~inches of space before the title and the same after it, as in
-Table~\ref{sample-table}. The table title should be set in 9~point
-type and centered unless it runs two or more lines, in which case it
-should be flush left.
-
-% Note use of \abovespace and \belowspace to get reasonable spacing
-% above and below tabular lines.
-
-\begin{table}[t]
-\caption{Classification accuracies for naive Bayes and flexible
-Bayes on various data sets.}
-\label{sample-table}
-\vskip 0.15in
-\begin{center}
-\begin{small}
-\begin{sc}
-\begin{tabular}{lcccr}
-\toprule
-Data set & Naive & Flexible & Better? \\
-\midrule
-Breast    & 95.9$\pm$ 0.2& 96.7$\pm$ 0.2& $\surd$ \\
-Cleveland & 83.3$\pm$ 0.6& 80.0$\pm$ 0.6& $\times$\\
-Glass2    & 61.9$\pm$ 1.4& 83.8$\pm$ 0.7& $\surd$ \\
-Credit    & 74.8$\pm$ 0.5& 78.3$\pm$ 0.6&         \\
-Horse     & 73.3$\pm$ 0.9& 69.7$\pm$ 1.0& $\times$\\
-Meta      & 67.1$\pm$ 0.6& 76.5$\pm$ 0.5& $\surd$ \\
-Pima      & 75.1$\pm$ 0.6& 73.9$\pm$ 0.5&         \\
-Vehicle   & 44.9$\pm$ 0.6& 61.5$\pm$ 0.4& $\surd$ \\
-\bottomrule
-\end{tabular}
-\end{sc}
-\end{small}
-\end{center}
-\vskip -0.1in
-\end{table}
-
-Tables contain textual material, whereas figures contain graphical material.
-Specify the contents of each row and column in the table's topmost
-row. Again, you may float tables to a column's top or bottom, and set
-wide tables across both columns. Place two-column tables at the
-top or bottom of the page.
 
 % In the unusual situation where you want a paper to appear in the
 % references without citing it in the main text, use \nocite
