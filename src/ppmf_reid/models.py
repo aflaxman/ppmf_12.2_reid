@@ -88,7 +88,7 @@ def load_and_link(state, state_fips, county_fips, n_chunks=1, chunk_i=0):
     #df_ppmf_4 = ppmf_reid.data.read_ppmf_data_4(state_fips, county_fips)
     df_ppmf_inf = ppmf_reid.data.simulate_ppmf_epsilon_infinity(df_synth)
     df_sim_ppmf = {}
-    for eps in [.01, .1, 1, 1.2, 1.25, 1.3, 1.35, 1.4, 1.6, 1.8] + list(range(2,9,2)):
+    for eps in [.01, 1, 10]:
         df_sim_ppmf[f'sim_{eps:.02f}'] = ppmf_reid.data.simulate_ppmf_epsilon(df_synth, eps)
 
     df_ppmf = df_sim_ppmf.copy()
@@ -131,15 +131,18 @@ def summarize_results(results):
             summary[f'n_unique_match_correct_impute_attribute_{col}_eps_{eps}'] = s_correct_match.sum()
 
         # tally counts for non-majority re-id
-        summary[f'n_unique_impute_nonmajority_{eps}'] = 0
+        summary[f'n_nonmajority'] = 0
+        summary[f'n_unique_impute_nonmajority_eps_{eps}'] = 0
         summary[f'n_correct_impute_nonmajority_eps_{eps}'] = 0
         for i, df_sim_commercial_i in results['df_sim_commercial'].groupby(['state', 'county', 'tract']):
             df_test_i = df_test.loc[df_sim_commercial_i.index]
             s_rac_eth_cnts = df_test_i.sum()
             majority_race_eth = s_rac_eth_cnts.sort_values(ascending=False).index[0]
             non_majority_rows = df_test_i[majority_race_eth] == 0
+            summary[f'n_nonmajority'] += np.sum(non_majority_rows)
+
             df_unique_impute = df_linked[np.all(df_linked[race_eth_cols]%1 == 0, axis=1)&non_majority_rows]
-            summary[f'n_unique_impute_nonmajority_{eps}'] += len(df_unique_impute)
+            summary[f'n_unique_impute_nonmajority_eps_{eps}'] += len(df_unique_impute)
             summary[f'n_correct_impute_nonmajority_eps_{eps}'
                    ] += np.all(df_unique_impute[race_eth_cols] == df_test_i.loc[df_unique_impute.index, race_eth_cols], axis=1).sum()
 

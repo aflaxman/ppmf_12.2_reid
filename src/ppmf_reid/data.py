@@ -15,6 +15,24 @@ def synth_fnames(state, county):
     fname_list = glob.glob(f'/ihme/scratch/users/beatrixh/synthetic_pop/pyomo/best/{state.lower()}/*county{county:03d}*.csv')
     return fname_list
 
+def transform_race_ethnicity(df):
+    df = df.copy()
+    # map race and ethnicity data to mutually exclusive categories
+    race_cols = ['racwht', 'racblk', 'racaian', 'racasn', 'racnhpi', 'racsor']
+
+    # first make anyone with hispanic flag set have no race flags set
+    df.loc[df.hispanic == 1, race_cols] = 0
+
+    # then make anyone who still has multiple race flags set instead
+    # have a single multiracial flag set
+    racmulti_rows = (df[race_cols].sum(axis=1) > 1)
+    df['racmulti'] = racmulti_rows.astype(int)
+    df.loc[racmulti_rows, race_cols] = 0
+
+    # confirm that everyone has a unique race/ethnicity now
+    assert np.allclose(df.filter(['hispanic', 'racmulti'] + race_cols).sum(axis=1), 1)
+    return df
+
 def read_synth_data(state, county):
     """ load pd.DataFrame of synthetic population for given state/county
 
@@ -30,6 +48,9 @@ def read_synth_data(state, county):
         df = pd.read_csv(fname)
         df_list.append(df)
     df_synth = pd.concat(df_list, ignore_index=True)
+
+    df_synth = transform_race_ethnicity(df_synth)
+
     return df_synth
 
 def read_ppmf_data(state, county):
@@ -42,6 +63,7 @@ def read_ppmf_data(state, county):
     """
     fname = f'/share/scratch/users/abie/ppmf/ppmf_20210428_eps12-2_P_{state:02d}{county:03d}.csv.gz'
     df_ppmf = pd.read_csv(fname)
+    df_ppmf = transform_race_ethnicity(df_ppmf)
     df_ppmf['pweight'] = 1.0
     return df_ppmf
 
@@ -54,10 +76,9 @@ def simulate_ppmf_epsilon_infinity(df_synth):
     """
     t = df_synth.filter([
         'state', 'county', 'tract', 'block', 'hispanic',
-        'racwht', 'racblk', 'racaian', 'racasn', 'racnhpi', 'racsor',
+        'racwht', 'racblk', 'racaian', 'racasn', 'racnhpi', 'racsor', 'racmulti',
     ])
     t['voting_age'] = (df_synth.age >= 18).astype(int)
-    t['racmulti'] = (t[['racwht', 'racblk', 'racaian', 'racasn', 'racnhpi', 'racsor']].sum(axis=1) > 1).astype(int)
     t['pweight'] = 1.0
     return t
 
@@ -88,10 +109,13 @@ def simulate_ppmf_epsilon(df_synth, epsilon):
     #noisy_hist *= len(df_synth)/noisy_hist.sum()  # rescale to keep total population invariant  (TODO: rescale all counties simulataneously to match state count)
     noisy_hist = np.round(noisy_hist) # round to have integral number of people (TODO: ensure the total count is still invariant)
     
-
     df_ppmf = noisy_hist.reset_index()
     df_ppmf = df_ppmf[df_ppmf.pweight > 0]
-    df_ppmf['racmulti'] = (df_ppmf[['racwht', 'racblk', 'racaian', 'racasn', 'racnhpi', 'racsor']].sum(axis=1)>1)
+
+    # df_ppmf (and s_hist) includes rows for individuals with no race, which is not allowed, filter them out now
+    df_ppmf = df_ppmf.query('not (racwht == 0 and racblk == 0 and racaian == 0 and racasn == 0 and racnhpi == 0 and racsor == 0)')
+
+    df_ppmf = transform_race_ethnicity(df_ppmf)
 
     return df_ppmf
 
@@ -131,8 +155,7 @@ def generate_test_data(df_synth, df_sim_commercial):
     race_eth_query : str, optional, query string used to subset df_synth
     """
     test_rows = df_sim_commercial.index
-    race_cols = ['racwht', 'racblk', 'racaian', 'racasn', 'racnhpi', 'racsor']
-    df_test = df_synth.loc[test_rows].filter(['hispanic'] + race_cols)
-    df_test['racmulti'] = (df_test[race_cols].sum(axis=1)>1)
+    race_eth_cols = ['hispanic', 'racwht', 'racblk', 'racaian', 'racasn', 'racnhpi', 'racsor', 'racmulti']
+    df_test = df_synth.loc[test_rows, race_eth_cols]
 
     return df_test
